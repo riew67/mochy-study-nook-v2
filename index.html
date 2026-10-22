@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mochi Study Space 🐰✨ | Personal Learning Dashboard</title>
+  
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Google Fonts & Tailwind CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pastelPink: '#FFD1DC',
+            pastelPinkDark: '#FFB6C1',
+            pastelPurple: '#E6E6FA',
+            pastelPeach: '#FFDAB9',
+            pastelYellow: '#FFFACD',
+            pastelMint: '#E0F8E7',
+            pastelBlue: '#E0F7FA',
+            darkPink: '#D87093',
+            cutePurple: '#9370DB',
+            cuteText: '#5A4A57'
+          },
+          fontFamily: {
+            nunito: ['Nunito', 'sans-serif'],
+            quicksand: ['Quicksand', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(135deg, #FFF0F5 0%, #E6E6FA 50%, #E0F8E7 100%);
+      color: #5A4A57;
+      min-height: 100vh;
+    }
+    .card-cute {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(216, 112, 147, 0.12);
+      backdrop-filter: blur(8px);
+      border: 2px solid #FFF0F5;
+      transition: all 0.3s ease;
+    }
+    .card-cute:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px rgba(216, 112, 147, 0.18);
+    }
+    .btn-cute {
+      background: linear-gradient(135deg, #FFB6C1 0%, #FFD1DC 100%);
+      color: #5A4A57;
+      font-weight: 700;
+      border-radius: 9999px;
+      box-shadow: 0 4px 12px rgba(255, 182, 193, 0.4);
+      transition: all 0.2s ease;
+    }
+    .btn-cute:hover {
+      transform: scale(1.04);
+      box-shadow: 0 6px 16px rgba(255, 182, 193, 0.6);
+    }
+    .nav-tab.active {
+      background-color: #FFB6C1 !important;
+      color: #5A4A57 !important;
+      font-weight: 800;
+      box-shadow: 0 4px 10px rgba(255, 182, 193, 0.5);
+    }
+    .flashcard {
+      perspective: 1000px;
+    }
+    .flashcard-inner {
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .flashcard.flipped .flashcard-inner {
+      transform: rotateY(180deg);
+    }
+    .flashcard-front, .flashcard-back {
+      backface-visibility: hidden;
+    }
+    .flashcard-back {
+      transform: rotateY(180deg);
+    }
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #e0e0e0;
+      color: #666;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-badge.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <!-- Header & Maskot -->
+  <header class="max-w-6xl mx-auto mb-6">
+    <div class="card-cute p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-4">
+        <!-- SVG Maskot Mochi -->
+        <div class="w-16 h-16 bg-pastelPink rounded-full flex items-center justify-center shadow-inner relative flex-shrink-0">
+          <svg class="w-12 h-12 text-darkPink" viewBox="0 0 100 100" fill="none">
+            <ellipse cx="50" cy="55" rx="35" ry="30" fill="#FFF" stroke="#D87093" stroke-width="4"/>
+            <ellipse cx="35" cy="25" rx="8" ry="20" fill="#FFF" stroke="#D87093" stroke-width="4"/>
+            <ellipse cx="35" cy="25" rx="4" ry="12" fill="#FFD1DC"/>
+            <ellipse cx="65" cy="25" rx="8" ry="20" fill="#FFF" stroke="#D87093" stroke-width="4"/>
+            <ellipse cx="65" cy="25" rx="4" ry="12" fill="#FFD1DC"/>
+            <circle cx="40" cy="50" r="4" fill="#5A4A57"/>
+            <circle cx="60" cy="50" r="4" fill="#5A4A57"/>
+            <path d="M 46 58 Q 50 62 54 58" stroke="#D87093" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <ellipse cx="32" cy="56" rx="5" ry="3" fill="#FFB6C1" opacity="0.6"/>
+            <ellipse cx="68" cy="56" rx="5" ry="3" fill="#FFB6C1" opacity="0.6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-darkPink font-quicksand">Mochi Study Space 🐰✨</h1>
+            <span id="syncStatus" class="status-badge">🔄 Connecting...</span>
+          </div>
+          <p id="mochiGreeting" class="text-sm font-semibold text-cuteText opacity-80">Halo Rerie! Siap belajar 2 jam hari ini untuk capai impianmu?</p>
+        </div>
+      </div>
+
+      <!-- Counter Streak & Actions -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="bg-pastelYellow px-4 py-2 rounded-2xl flex items-center gap-2 border border-yellow-200">
+          <span class="text-2xl">🔥</span>
+          <div>
+            <p class="text-xs font-bold text-gray-500 uppercase">Streak Belajar</p>
+            <p class="text-lg font-extrabold text-amber-600"><span id="streakCount">0</span> Hari</p>
+          </div>
+        </div>
+
+        <button onclick="doDailyCheckin()" id="checkinBtn" class="btn-cute px-5 py-3 text-sm flex items-center gap-2">
+          <span>✨</span> Absen Hari Ini
+        </button>
+
+        <div class="flex gap-2">
+          <button onclick="exportData()" title="Backup Data" class="p-2 bg-pastelPurple hover:bg-purple-200 rounded-full text-cutePurple font-bold">💾</button>
+          <button onclick="importData()" title="Impor Data" class="p-2 bg-pastelMint hover:bg-emerald-200 rounded-full text-emerald-700 font-bold">📥</button>
+          <input type="file" id="importFile" class="hidden" onchange="processImport(event)">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="max-w-6xl mx-auto mb-6 flex overflow-x-auto gap-2 p-2 bg-white/60 rounded-3xl backdrop-blur-md border border-pink-100">
+    <button onclick="switchTab('plan')" id="tab-plan" class="nav-tab active px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+      📋 Study Plan (2 Jam)
+    </button>
+    <button onclick="switchTab('english')" id="tab-english" class="nav-tab px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+      🇬🇧 English Lab (30m)
+    </button>
+    <button onclick="switchTab('german')" id="tab-german" class="nav-tab px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+      🇩🇪 Deutsch Lab (30m)
+    </button>
+    <button onclick="switchTab('course')" id="tab-course" class="nav-tab px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+      🎓 Kursus Mandiri (30m)
+    </button>
+    <button onclick="switchTab('va')" id="tab-va" class="nav-tab px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+      💼 VA Practice (30m)
+    </button>
+    <button onclick="switchTab('analytics')" id="tab-analytics" class="nav-tab px-5 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+      📊 Analytics
+    </button>
+  </nav>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-6xl mx-auto">
+
+    <!-- 1. STUDY PLAN TAB -->
+    <section id="sec-plan" class="tab-content block">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Target 4 Sesi Harian -->
+        <div class="card-cute p-6 md:col-span-2">
+          <h2 class="text-xl font-bold text-darkPink mb-4 flex items-center gap-2">
+            <span>⏱️</span> Target Rutinitas Belajar (Total: 2 Jam)
+          </h2>
+          <div class="space-y-3">
+            <label class="flex items-center justify-between p-3 bg-white rounded-2xl border border-pink-100 cursor-pointer hover:bg-pink-50/50">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="chk-inggris" onchange="toggleTask('chk-inggris')" class="w-5 h-5 accent-pink-400 rounded-lg">
+                <span class="font-bold text-sm">🇬🇧 Bahasa Inggris B1 → B2 (Shadowing & Email)</span>
+              </div>
+              <span class="text-xs bg-pink-100 font-bold text-darkPink px-3 py-1 rounded-full">30 Menit</span>
+            </label>
+
+            <label class="flex items-center justify-between p-3 bg-white rounded-2xl border border-pink-100 cursor-pointer hover:bg-pink-50/50">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="chk-jerman" onchange="toggleTask('chk-jerman')" class="w-5 h-5 accent-pink-400 rounded-lg">
+                <span class="font-bold text-sm">🇩🇪 Bahasa Jerman A1 (Nicos Weg / Grammar)</span>
+              </div>
+              <span class="text-xs bg-purple-100 font-bold text-cutePurple px-3 py-1 rounded-full">30 Menit</span>
+            </label>
+
+            <label class="flex items-center justify-between p-3 bg-white rounded-2xl border border-pink-100 cursor-pointer hover:bg-pink-50/50">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="chk-kursus" onchange="toggleTask('chk-kursus')" class="w-5 h-5 accent-pink-400 rounded-lg">
+                <span class="font-bold text-sm">🎓 Kursus Mandiri pilihanmu</span>
+              </div>
+              <span class="text-xs bg-emerald-100 font-bold text-emerald-700 px-3 py-1 rounded-full">30 Menit</span>
+            </label>
+
+            <label class="flex items-center justify-between p-3 bg-white rounded-2xl border border-pink-100 cursor-pointer hover:bg-pink-50/50">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="chk-va" onchange="toggleTask('chk-va')" class="w-5 h-5 accent-pink-400 rounded-lg">
+                <span class="font-bold text-sm">💼 Praktek Simulasi Virtual Assistant</span>
+              </div>
+              <span class="text-xs bg-blue-100 font-bold text-blue-700 px-3 py-1 rounded-full">30 Menit</span>
+            </label>
+          </div>
+
+          <!-- Overall Daily Progress -->
+          <div class="mt-6">
+            <div class="flex justify-between text-xs font-bold text-cuteText mb-2">
+              <span>Progress Belajar Hari Ini</span>
+              <span id="dailyProgressText">0 / 2 Jam (0%)</span>
+            </div>
+            <div class="w-full bg-gray-200 h-4 rounded-full overflow-hidden p-0.5">
+              <div id="dailyProgressBar" class="bg-gradient-to-r from-pink-300 to-pastelPinkDark h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timer Pomodoro 30 Menit -->
+        <div class="card-cute p-6 flex flex-col items-center justify-center text-center">
+          <h3 class="font-bold text-darkPink mb-1">⏱️ Timer Sesi 30 Menit</h3>
+          <p class="text-xs text-gray-500 mb-4">Fokus tanpa distraksi selama 30 menit!</p>
+
+          <div class="w-36 h-36 rounded-full bg-pastelPink/40 border-4 border-pastelPinkDark flex items-center justify-center my-2 shadow-inner">
+            <span id="timerDisplay" class="text-3xl font-extrabold text-darkPink font-mono">30:00</span>
+          </div>
+
+          <div class="flex gap-2 mt-4">
+            <button onclick="startTimer()" class="btn-cute px-5 py-2 text-xs">Start</button>
+            <button onclick="pauseTimer()" class="bg-pastelPurple px-4 py-2 rounded-full text-xs font-bold text-cutePurple">Pause</button>
+            <button onclick="resetTimer()" class="bg-gray-200 px-4 py-2 rounded-full text-xs font-bold text-gray-600">Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. ENGLISH LEARNING LAB -->
+    <section id="sec-english" class="tab-content hidden space-y-6">
+      <div class="card-cute p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+          <h2 class="text-xl font-bold text-darkPink">🇬🇧 English Learning Lab (B1 → B2)</h2>
+        </div>
+
+        <!-- Sumber Rekomendasi Belajar Bahasa Inggris -->
+        <div class="bg-pink-50/70 p-4 rounded-2xl border border-pink-200 mb-6">
+          <h3 class="font-bold text-sm text-darkPink mb-2 flex items-center gap-2">📚 Sumber Rekomendasi Belajar Gratis:</h3>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://www.bbc.co.uk/learningenglish/" target="_blank" class="text-xs bg-white hover:bg-pink-100 text-darkPink border border-pink-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">📺 BBC Learning English ↗</a>
+            <a href="https://www.cambridgeenglish.org/learning-english/free-resources/" target="_blank" class="text-xs bg-white hover:bg-pink-100 text-darkPink border border-pink-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">📝 Cambridge English B2 Prep ↗</a>
+            <a href="https://www.youtube.com/@rachelsenglish" target="_blank" class="text-xs bg-white hover:bg-pink-100 text-darkPink border border-pink-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">🎬 Rachel's English (YouTube) ↗</a>
+          </div>
+        </div>
+
+        <!-- Shadowing Lab -->
+        <div class="bg-white p-4 rounded-2xl border border-pink-100 mb-6">
+          <h3 class="font-bold text-sm text-purple-700 mb-2">🗣️ Interactive Shadowing Practice</h3>
+          <p class="text-xs text-gray-600 mb-3">Dengarkan dan ikuti pengucapan kalimat bahasa Inggris profesional berikut dengan suara lantang:</p>
+          
+          <div class="space-y-2">
+            <div class="p-3 bg-pink-50/50 rounded-xl flex items-center justify-between">
+              <div>
+                <p class="text-sm font-semibold">"I would be happy to assist you with scheduling that meeting."</p>
+                <p class="text-xs text-gray-500">Arti: Saya dengan senang hati membantu Anda menjadwalkan rapat tersebut.</p>
+              </div>
+              <button onclick="speakText('I would be happy to assist you with scheduling that meeting.')" class="bg-pink-200 p-2 rounded-full hover:bg-pink-300">🔊</button>
+            </div>
+
+            <div class="p-3 bg-pink-50/50 rounded-xl flex items-center justify-between">
+              <div>
+                <p class="text-sm font-semibold">"Please find the attached document for your review."</p>
+                <p class="text-xs text-gray-500">Arti: Silakan cek dokumen terlampir untuk Anda tinjau.</p>
+              </div>
+              <button onclick="speakText('Please find the attached document for your review.')" class="bg-pink-200 p-2 rounded-full hover:bg-pink-300">🔊</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flashcards B2 -->
+        <h3 class="font-bold text-sm text-darkPink mb-3">🎴 Flashcard Vocab B2 (Klik untuk balik)</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div onclick="this.classList.toggle('flipped')" class="flashcard card-cute p-6 cursor-pointer text-center h-32 flex items-center justify-center bg-gradient-to-br from-pink-100 to-purple-100">
+            <div class="flashcard-inner w-full">
+              <div class="flashcard-front font-bold text-base text-darkPink">Prioritize</div>
+              <div class="flashcard-back text-xs font-semibold text-cuteText">Memprioritaskan / Menentukan skala prioritas</div>
+            </div>
+          </div>
+          <div onclick="this.classList.toggle('flipped')" class="flashcard card-cute p-6 cursor-pointer text-center h-32 flex items-center justify-center bg-gradient-to-br from-purple-100 to-blue-100">
+            <div class="flashcard-inner w-full">
+              <div class="flashcard-front font-bold text-base text-cutePurple">Collaborate</div>
+              <div class="flashcard-back text-xs font-semibold text-cuteText">Bekerja sama / Bekerja dalam tim</div>
+            </div>
+          </div>
+          <div onclick="this.classList.toggle('flipped')" class="flashcard card-cute p-6 cursor-pointer text-center h-32 flex items-center justify-center bg-gradient-to-br from-mint-100 to-yellow-100">
+            <div class="flashcard-inner w-full">
+              <div class="flashcard-front font-bold text-base text-emerald-700">Efficient</div>
+              <div class="flashcard-back text-xs font-semibold text-cuteText">Efisien / Tepat guna tanpa buang waktu</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. DEUTSCH LEARNING LAB -->
+    <section id="sec-german" class="tab-content hidden space-y-6">
+      <div class="card-cute p-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+          <h2 class="text-xl font-bold text-cutePurple">🇩🇪 Deutsch Learning Lab (A1)</h2>
+        </div>
+
+        <!-- Sumber Rekomendasi Belajar Bahasa Jerman -->
+        <div class="bg-purple-50/70 p-4 rounded-2xl border border-purple-200 mb-6">
+          <h3 class="font-bold text-sm text-cutePurple mb-2 flex items-center gap-2">📚 Sumber Rekomendasi Belajar Gratis:</h3>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://learngerman.dw.com/de/nicos-weg/c-36519789" target="_blank" class="text-xs bg-white hover:bg-purple-100 text-cutePurple border border-purple-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">📺 Nicos Weg (DW Deutsch Welle) ↗</a>
+            <a href="https://www.goethe.de/en/spr/ueb.html" target="_blank" class="text-xs bg-white hover:bg-purple-100 text-cutePurple border border-purple-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">🇩🇪 Goethe-Institut A1 Material ↗</a>
+            <a href="https://www.youtube.com/@EasyGerman" target="_blank" class="text-xs bg-white hover:bg-purple-100 text-cutePurple border border-purple-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">🎬 Easy German (YouTube) ↗</a>
+          </div>
+        </div>
+
+        <!-- Quiz Der / Die / Das -->
+        <div class="bg-white p-5 rounded-2xl border border-purple-100 mb-6">
+          <h3 class="font-bold text-sm text-cutePurple mb-2">🧩 Mini Quiz: Der, Die, atau Das?</h3>
+          <p class="text-xs text-gray-600 mb-4">Pilih artikel kata benda yang tepat di bawah ini:</p>
+
+          <div class="space-y-4">
+            <div class="p-3 bg-purple-50/50 rounded-xl">
+              <p class="text-sm font-bold mb-2">1. ___ Tisch (Meja)</p>
+              <div class="flex gap-2">
+                <button onclick="checkAnswer(this, true)" class="px-3 py-1 bg-white border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100">der</button>
+                <button onclick="checkAnswer(this, false)" class="px-3 py-1 bg-white border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100">die</button>
+                <button onclick="checkAnswer(this, false)" class="px-3 py-1 bg-white border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100">das</button>
+              </div>
+            </div>
+
+            <div class="p-3 bg-purple-50/50 rounded-xl">
+              <p class="text-sm font-bold mb-2">2. ___ Frau (Wanita)</p>
+              <div class="flex gap-2">
+                <button onclick="checkAnswer(this, false)" class="px-3 py-1 bg-white border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100">der</button>
+                <button onclick="checkAnswer(this, true)" class="px-3 py-1 bg-white border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100">die</button>
+                <button onclick="checkAnswer(this, false)" class="px-3 py-1 bg-white border border-purple-200 rounded-lg text-xs font-bold hover:bg-purple-100">das</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. KURSUS MANDIRI TAB -->
+    <section id="sec-course" class="tab-content hidden space-y-6">
+      <div class="card-cute p-6">
+        <h2 class="text-xl font-bold text-emerald-700 mb-2">🎓 Target & Modul Kursus Mandiri</h2>
+        <p class="text-xs text-gray-600 mb-4">Tentukan kursus pilihanmu lalu catat modul yang diselesaikan di sini!</p>
+
+        <!-- Sumber Rekomendasi Platform Kursus Gratis -->
+        <div class="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200 mb-6">
+          <h3 class="font-bold text-sm text-emerald-800 mb-2 flex items-center gap-2">📚 Platform Kursus Gratis Rekomendasi:</h3>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://alison.com/courses/virtual-assistant" target="_blank" class="text-xs bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">🎓 Alison VA Free Courses ↗</a>
+            <a href="https://www.coursera.org/courses?query=free" target="_blank" class="text-xs bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">🎓 Coursera (Free Audit) ↗</a>
+            <a href="https://grow.google/certificates/" target="_blank" class="text-xs bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">🌐 Google Digital Garage ↗</a>
+          </div>
+        </div>
+
+        <!-- Form Input Kursus -->
+        <div class="bg-white p-4 rounded-2xl border border-emerald-100 mb-6 space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Nama Kursus yang Sedang Diikuti:</label>
+            <input type="text" id="courseNameInput" placeholder="Misal: Working as a Virtual Assistant (Alison)" oninput="saveCourseInfo()" class="w-full p-2.5 bg-emerald-50/40 border border-emerald-200 rounded-xl text-sm font-semibold">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Target / Goal Utama Kursus Ini:</label>
+            <input type="text" id="courseGoalInput" placeholder="Misal: Paham cara kelola inbox email & bikin laporan kerja" oninput="saveCourseInfo()" class="w-full p-2.5 bg-emerald-50/40 border border-emerald-200 rounded-xl text-sm font-semibold">
+          </div>
+        </div>
+
+        <!-- Dynamic Checklist Modul Kursus -->
+        <div>
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-sm text-emerald-800">📋 Daftar Bab / Modul Kursus:</h3>
+            <button onclick="addCourseModule()" class="text-xs bg-emerald-200 hover:bg-emerald-300 font-bold px-3 py-1.5 rounded-xl text-emerald-800">+ Tambah Modul</button>
+          </div>
+          <div id="courseModuleList" class="space-y-2">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. VA PRACTICE TAB -->
+    <section id="sec-va" class="tab-content hidden space-y-6">
+      <div class="card-cute p-6">
+        <h2 class="text-xl font-bold text-blue-700 mb-2">💼 Virtual Assistant Practice Lab</h2>
+        <p class="text-xs text-gray-600 mb-4">Latihan keterampilan teknis & komunikasi administrasi profesional.</p>
+
+        <!-- Sumber Rekomendasi Materi Latihan VA -->
+        <div class="bg-blue-50/70 p-4 rounded-2xl border border-blue-200 mb-6">
+          <h3 class="font-bold text-sm text-blue-800 mb-2 flex items-center gap-2">📚 Sumber Materi & Tools Latihan VA:</h3>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://blog.hubspot.com/sales/email-templates" target="_blank" class="text-xs bg-white hover:bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">✉️ HubSpot Email Templates ↗</a>
+            <a href="https://trello.com/tour" target="_blank" class="text-xs bg-white hover:bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">📋 Trello Guide for VAs ↗</a>
+            <a href="https://zapier.com/learn/automation-basics/" target="_blank" class="text-xs bg-white hover:bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 shadow-sm">⚡ Zapier Automation Basics ↗</a>
+          </div>
+        </div>
+        
+        <div class="bg-white p-4 rounded-2xl border border-blue-100 mb-6">
+          <h3 class="font-bold text-sm text-blue-800 mb-2">✉️ Email Drafting Exercise</h3>
+          <p class="text-xs text-gray-600 mb-3">Salin template email profesional di bawah ini untuk latihan mengirim email ke klien:</p>
+          <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-200 text-xs font-mono text-gray-700 relative">
+            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); alert('Template tersalin!')" class="absolute top-2 right-2 bg-blue-200 px-2 py-1 rounded text-xs font-bold">Copy</button>
+            <span>Subject: Weekly Administrative Summary & Updates<br><br>Hi [Client Name],<br><br>I hope you are having a productive week! Here is a brief update on the tasks completed this week...</span>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="font-bold text-sm text-blue-800 mb-2">📝 Catatan & Jurnal Latihan VA</h3>
+          <textarea id="vaJournalText" oninput="saveVAJournal()" rows="4" placeholder="Tuliskan catatan latihan, istilah baru, atau ringkasan materi VA kamu di sini..." class="w-full p-3 bg-white border border-blue-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. ANALYTICS TAB -->
+    <section id="sec-analytics" class="tab-content hidden space-y-6">
+      <div class="card-cute p-6">
+        <h2 class="text-xl font-bold text-darkPink mb-4">📊 Analisis Progress Belajar</h2>
+        <div class="max-w-md mx-auto">
+          <canvas id="progressChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // --- SUPABASE CONFIG & SYNC ---
+    const SUPABASE_URL = "https://bfahyqgmqxlktxlycknz.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_C2P-Tk-nHsPkssgkqMVvCQ_1mc02DiD";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let appState = {
+      streak: 0,
+      lastCheckinDate: null,
+      lastTaskDate: null,
+      tasks: {},
+      courseName: "",
+      courseGoal: "",
+      courseModules: [
+        { text: "Module 1: Introduction to Virtual Assistance", done: false },
+        { text: "Module 2: Client Communication Skills", done: false }
+      ],
+      vaJournal: ""
+    };
+
+    async function loadState() {
+      const statusEl = document.getElementById('syncStatus');
+      try {
+        const { data, error } = await supabaseClient
+          .from('user_data')
+          .select('data')
+          .eq('id', 'mochi_study_state')
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error("Error loading:", error);
+          statusEl.innerText = "❌ Sync Error";
+          statusEl.classList.remove('connected');
+        } else {
+          if (data && data.data) {
+            appState = Object.assign(appState, data.data);
+          }
+          statusEl.innerText = "☁️ Cloud Connected";
+          statusEl.classList.add('connected');
+          
+          // Auto reset checklist jika berganti hari
+          checkAndResetDailyTasks();
+          syncUI();
+        }
+      } catch (err) {
+        console.error(err);
+        statusEl.innerText = "❌ Offline";
+      }
+
+      // Realtime listener
+      supabaseClient
+        .channel('public:user_data')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data' }, payload => {
+          if (payload.new && payload.new.id === 'mochi_study_state') {
+            appState = payload.new.data;
+            syncUI();
+          }
+        })
+        .subscribe();
+    }
+
+    function checkAndResetDailyTasks() {
+      const today = new Date().toDateString();
+      if (appState.lastTaskDate !== today) {
+        // Reset centang harian untuk hari baru
+        appState.tasks = {};
+        appState.lastTaskDate = today;
+        saveState();
+      }
+    }
+
+    async function saveState() {
+      const statusEl = document.getElementById('syncStatus');
+      statusEl.innerText = "⏳ Saving...";
+
+      const { error } = await supabaseClient
+        .from('user_data')
+        .upsert({ id: 'mochi_study_state', data: appState });
+
+      if (error) {
+        console.error("Error saving:", error);
+        statusEl.innerText = "❌ Save Failed";
+        statusEl.classList.remove('connected');
+      } else {
+        statusEl.innerText = "☁️ Cloud Connected";
+        statusEl.classList.add('connected');
+      }
+      updateDailyProgress();
+    }
+
+    function syncUI() {
+      document.getElementById('streakCount').innerText = appState.streak || 0;
+      document.getElementById('courseNameInput').value = appState.courseName || "";
+      document.getElementById('courseGoalInput').value = appState.courseGoal || "";
+      document.getElementById('vaJournalText').value = appState.vaJournal || "";
+
+      // Sync Checkboxes
+      const taskIds = ['chk-inggris', 'chk-jerman', 'chk-kursus', 'chk-va'];
+      taskIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!(appState.tasks && appState.tasks[id]);
+      });
+
+      renderCourseModules();
+      updateDailyProgress();
+    }
+
+    // Tab Switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById('sec-' + tabId).classList.remove('hidden');
+      document.getElementById('tab-' + tabId).classList.add('active');
+
+      if (tabId === 'analytics') renderChart();
+    }
+
+    // Daily Checkin & Streak
+    function doDailyCheckin() {
+      const today = new Date().toDateString();
+      if (appState.lastCheckinDate === today) {
+        alert("Kamu sudah melakukan absen hari ini! Terus semangat ya! ✨");
+        return;
+      }
+      
+      appState.streak = (appState.streak || 0) + 1;
+      appState.lastCheckinDate = today;
+      document.getElementById('streakCount').innerText = appState.streak;
+      saveState();
+      alert("Hore! Absen berhasil. Streak belajar kamu bertambah menjadi " + appState.streak + " hari! 🔥");
+    }
+
+    // Tasks & Progress
+    function toggleTask(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        if (!appState.tasks) appState.tasks = {};
+        appState.tasks[id] = el.checked;
+        appState.lastTaskDate = new Date().toDateString();
+        saveState();
+      }
+    }
+
+    function updateDailyProgress() {
+      const ids = ['chk-inggris', 'chk-jerman', 'chk-kursus', 'chk-va'];
+      let done = 0;
+      ids.forEach(id => { 
+        const el = document.getElementById(id);
+        if (el && el.checked) done++; 
+      });
+      
+      const hours = (done * 0.5).toFixed(1);
+      const percent = Math.round((done / 4) * 100);
+
+      document.getElementById('dailyProgressText').innerText = `${hours} / 2 Jam (${percent}%)`;
+      document.getElementById('dailyProgressBar').style.width = percent + '%';
+    }
+
+    // Course Modules
+    function saveCourseInfo() {
+      appState.courseName = document.getElementById('courseNameInput').value;
+      appState.courseGoal = document.getElementById('courseGoalInput').value;
+      saveState();
+    }
+
+    function renderCourseModules() {
+      const container = document.getElementById('courseModuleList');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      if (!appState.courseModules) appState.courseModules = [];
+      appState.courseModules.forEach((mod, index) => {
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-3 bg-white rounded-xl border border-emerald-100";
+        div.innerHTML = `
+          <label class="flex items-center gap-3 cursor-pointer flex-grow">
+            <input type="checkbox" ${mod.done ? 'checked' : ''} onchange="toggleModule(${index})" class="w-4 h-4 accent-emerald-500 rounded">
+            <span class="text-xs font-semibold ${mod.done ? 'line-through text-gray-400' : 'text-gray-700'}">${mod.text}</span>
+          </label>
+          <button onclick="removeModule(${index})" class="text-xs text-red-400 font-bold px-2 py-1">Hapus</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addCourseModule() {
+      const text = prompt("Masukkan nama modul / bab kursus:");
+      if (text) {
+        appState.courseModules.push({ text: text, done: false });
+        saveState();
+        renderCourseModules();
+      }
+    }
+
+    function toggleModule(index) {
+      appState.courseModules[index].done = !appState.courseModules[index].done;
+      saveState();
+      renderCourseModules();
+    }
+
+    function removeModule(index) {
+      appState.courseModules.splice(index, 1);
+      saveState();
+      renderCourseModules();
+    }
+
+    function saveVAJournal() {
+      appState.vaJournal = document.getElementById('vaJournalText').value;
+      saveState();
+    }
+
+    // Audio Speech
+    function speakText(text) {
+      if ('speechSynthesis' in window) {
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'en-US';
+        window.speechSynthesis.speak(msg);
+      } else {
+        alert("Browser kamu tidak mendukung Speech Synthesis.");
+      }
+    }
+
+    // Quiz Check
+    function checkAnswer(btn, isCorrect) {
+      if (isCorrect) {
+        btn.className = "px-3 py-1 bg-emerald-400 text-white rounded-lg text-xs font-bold";
+        alert("Richtig! (Benar sekali) 🎉");
+      } else {
+        btn.className = "px-3 py-1 bg-red-400 text-white rounded-lg text-xs font-bold";
+        alert("Falsch! Coba lagi yaa! 💪");
+      }
+    }
+
+    // Timer Logic
+    let timerInterval = null;
+    let timerSeconds = 1800; // 30 mins
+
+    function startTimer() {
+      if (timerInterval) return;
+      timerInterval = setInterval(() => {
+        if (timerSeconds > 0) {
+          timerSeconds--;
+          updateTimerDisplay();
+        } else {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          alert("Waktu sesi 30 menit selesai! Istirahat sejenak yuk! 🌸");
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      timerSeconds = 1800;
+      updateTimerDisplay();
+    }
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const s = (timerSeconds % 60).toString().padStart(2, '0');
+      document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+    }
+
+    // Export & Import
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Mochi_Study_Space_Backup.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importData() {
+      document.getElementById('importFile').click();
+    }
+
+    function processImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          appState = JSON.parse(e.target.result);
+          saveState();
+          syncUI();
+          alert("Data berhasil diimpor! ✨");
+        } catch (err) {
+          alert("File JSON tidak valid!");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Chart.js
+    let myChart = null;
+    function renderChart() {
+      const ctx = document.getElementById('progressChart').getContext('2d');
+      if (myChart) myChart.destroy();
+
+      const ids = ['chk-inggris', 'chk-jerman', 'chk-kursus', 'chk-va'];
+      const data = ids.map(id => {
+        const el = document.getElementById(id);
+        return (el && el.checked) ? 100 : 0;
+      });
+
+      myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['English B2', 'Deutsch A1', 'Kursus Mandiri', 'Praktek VA'],
+          datasets: [{
+            label: '% Selesai Hari Ini',
+            data: data,
+            backgroundColor: ['#FFB6C1', '#E6E6FA', '#A7F3D0', '#BAE6FD'],
+            borderRadius: 12
+          }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true, max: 100 } },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // Init
+    window.onload = loadState;
+  </script>
+</body>
+</html>
